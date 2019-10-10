@@ -3,7 +3,7 @@
 
 static char myBlock[4096];
 
-void* mymalloc(int size, char* file, char* line){
+void* mymalloc(int size, char* file, int line){
     // Metadata is 2 bytes so size cannot be greater than 4094 bytes
     if(size > 4094 || size < 1){
         printf("error");
@@ -83,4 +83,49 @@ void* mymalloc(int size, char* file, char* line){
        the entire space of the array. In that case, there is no space available to give the caller.*/
     printf("error");
     return NULL;
+}
+
+void myfree(void* ptr, char* file, int line){
+    ptr = ptr - 2;
+    if((ptr < myBlock) || (ptr > myBlock + 4093)){
+        printf("error\n");
+        return;
+    }
+
+    unsigned short* meta = (unsigned short*)myBlock;
+    unsigned short parity = *meta >> 12;
+    unsigned short next = *meta & 0xfff;
+    // Maybe check if malloc was run? Not really necessary though.
+    unsigned short* prevMeta = meta;
+    unsigned short prevParity = *prevMeta >> 12;
+    unsigned short* nextMeta = (unsigned short*)(myBlock + next);
+    unsigned short nextParity = *nextMeta >> 12;
+
+    do{
+        if(meta == ptr){
+            if(parity == 1){
+                *meta = next;
+                if((next != 0) && (nextParity == 0)){
+                    *meta = *nextMeta & 0xfff;
+                }
+                if(prevParity == 0){
+                    *prevMeta = *meta;
+                }
+                return;
+            }else{
+                printf("error\n");
+                return;
+            }
+        }
+        prevMeta = meta;
+        prevParity = parity;
+        meta = myBlock + next;
+        parity = *meta >> 12;
+        next = *meta & 0xfff;
+        nextMeta = myBlock + next;
+        nextParity = *nextMeta >> 12;
+    }while(meta != myBlock);
+
+    printf("error");
+    return;
 }
